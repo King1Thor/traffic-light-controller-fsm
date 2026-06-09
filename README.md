@@ -23,15 +23,15 @@ The design first implements a fixed-time traffic light controller, then improves
 
 The design targets the **ZYBO Z7-10** FPGA board.
 
-![ZYBO Z7-10 Board](images/zyboz10.jpg)
+![ZYBO Z7-10 Board](zyboz10.jpg)
 
 ## FSM State Diagram
 
-![Traffic Light FSM State Diagram](images/state_diagram.png)
+![Traffic Light FSM State Diagram](state_diagram.png)
 
 ## Simulation Waveform
 
-![Traffic Light FSM Waveform](images/waveform.png)
+![Traffic Light FSM Waveform](waveform.png)
 
 ## FSM States
 
