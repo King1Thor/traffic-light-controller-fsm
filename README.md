@@ -91,8 +91,3 @@ The push-button inputs are asynchronous to the FPGA clock, so they pass through 
 - Synchronization of asynchronous inputs
 - Simulation and waveform analysis
 - Hardware debugging on FPGA
-
-## Author
-
-Ali Hussein  
-Computer Engineering — Texas A&M University
