@@ -31,7 +31,7 @@ The design targets the **ZYBO Z7-10** FPGA board.
 
 ## Simulation Waveform
 
-![Traffic Light FSM Waveform](waveform.png)
+![Traffic Light FSM Waveform](waveform1.png)
 
 ## FSM States
 
