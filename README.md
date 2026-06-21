@@ -1,93 +1,92 @@
-# Traffic Light Controller FSM on ZYBO Z7-10
+# Traffic Light Controller (FSM) — Zybo Z7-10
 
-This project implements a traffic light controller using a Finite State Machine (FSM) in Verilog. The design was built for the ZYBO Z7-10 FPGA board and controls a highway/farm-road intersection using timed state transitions and a farm-road sensor input.
+A traffic-light controller for a **highway / farm-road intersection**, built as a
+**6-state Moore finite-state machine** in Verilog and deployed on the Digilent
+**Zybo Z7-10** FPGA. The highway has priority; the farm road only gets a green
+when a vehicle is detected, and the highway always keeps a minimum green time.
 
-## Project Overview
+**▶ Live demo:** open [`tlc-demo.html`](tlc-demo.html) (or host it — see below).
 
-The controller manages two traffic signals:
+## State diagram
 
-- Highway traffic light
-- Farm road traffic light
+![Traffic Light FSM state diagram](state_diagram.svg)
 
-Each light uses a 2-bit output encoding:
+## How it works
 
-| Signal | Meaning |
+Two 2-bit signals drive the lights, one per road:
+
+| Encoding | Meaning |
 |---|---|
-| `2'b11` | Green |
-| `2'b10` | Yellow |
 | `2'b01` | Red |
+| `2'b10` | Yellow |
+| `2'b11` | Green |
 
-The design first implements a fixed-time traffic light controller, then improves it by adding a `farmSensor` input. The sensor allows the farm road light to turn green only when a vehicle is detected, while still giving priority to the highway.
+A 31-bit counter measures how long the machine has been in the current state; the
+FSM compares it against per-phase thresholds to decide when to move on. A 3-flop
+**synchronizer** cleans the asynchronous reset button and farm-road sensor before
+they reach the logic.
 
-## FPGA Board
+### States
 
-The design targets the **ZYBO Z7-10** FPGA board.
-
-![ZYBO Z7-10 Board](zyboz10.jpg)
-
-## FSM State Diagram
-
-![Traffic Light FSM State Diagram](state_diagram.png)
-
-## Simulation Waveform
-
-![Traffic Light FSM Waveform](waveform1.png)
-
-## FSM States
-
-| State | Highway Light | Farm Road Light | Description |
+| State | Highway | Farm road | Leaves when |
 |---|---|---|---|
-| `S0` | Red | Red | All-red safety delay |
-| `S1` | Green | Red | Highway traffic moves |
-| `S2` | Yellow | Red | Highway prepares to stop |
-| `S3` | Red | Red | All-red safety delay |
-| `S4` | Red | Green | Farm road traffic moves |
-| `S5` | Red | Yellow | Farm road prepares to stop |
+| `S0` | Red | Red | 1 s all-red safety gap elapses |
+| `S1` | **Green** | Red | ≥ 30 s **and** a farm-road car is detected |
+| `S2` | **Yellow** | Red | 3 s |
+| `S3` | Red | Red | 1 s all-red safety gap elapses |
+| `S4` | Red | **Green** | ≥ 3 s **and** (car has left **or** 18 s cap reached) |
+| `S5` | Red | **Yellow** | 3 s, then back to `S0` |
 
-## Sensor Behavior
+So with no traffic on the farm road the highway simply stays green; a waiting car
+trips the sensor and, after the minimum green, the machine hands the intersection
+over and back.
 
-The `farmSensor` input is used to simulate a vehicle detector on the farm road.
+## Modules
 
-- In `S1`, the highway remains green for at least 30 seconds.
-- After the 30-second minimum, the controller only leaves highway green if `farmSensor` is active.
-- In `S4`, the farm road remains green for at least 3 seconds.
-- If the sensor remains active, the farm road green can extend up to a maximum time.
-- This prevents the farm road from holding the intersection forever and gives priority back to the highway.
-
-## Main Files
-
-| File | Purpose |
+| File | Role |
 |---|---|
-| `tlc_fsm.v` | Main traffic light FSM |
-| `tlc_controller_ver1.v` | Top-level FPGA controller |
-| `synchronizer.v` | Synchronizes push-button inputs |
-| `tlc_fsm_tb.v` | Testbench for simulation |
-| `tlc_controller.xdc` | ZYBO Z7-10 constraint file |
-| `README.md` | Project documentation |
+| `tlc_fsm.v` | the 6-state Moore FSM (next-state + output logic) |
+| `tlc_controller_ver1.v` | top module: 31-bit counter + synchronizers + FSM, board I/O |
+| `synchronizer.v` | 3-flop synchronizer for async inputs |
+| `tlc_fsm_tb.v` | self-checking testbench (drives the counter to each threshold) |
+| `tlc_controller.xdc` | Zybo Z7-10 pin constraints |
 
-## How It Works
+## Simulate (Icarus Verilog)
 
-The design uses a counter to create timing delays for each traffic light state. The FSM checks the counter value and sensor input to decide when to move to the next state. The `RstCount` signal resets the counter every time the FSM changes states.
+```bash
+iverilog -g2012 -o run tlc_fsm.v tlc_fsm_tb.v
+vvp run
+```
 
-The push-button inputs are asynchronous to the FPGA clock, so they pass through synchronizer modules before entering the FSM. This helps reduce metastability issues when using physical buttons.
+Expected: every state and transition is checked, ending with
+`TLC FSM: ALL TESTS PASSED`. (The testbench drives `Count` directly to each
+threshold, so a full cycle is verified in a few hundred nanoseconds instead of the
+real tens of seconds.)
 
-## Tools Used
+## On the FPGA (Vivado, Zybo Z7-10)
 
-- Verilog HDL
-- Vivado
-- ZYBO Z7-10 FPGA board
-- FSM design
-- Digital logic design
-- Testbench simulation
-- Waveform debugging
+Add the three RTL files, set the top module to `tlc_controller_ver1`, add
+`tlc_controller.xdc`, and generate the bitstream. The highway/farm signals drive
+the board LEDs (red = one LED, yellow = the other, green = both), the reset and
+farm-sensor map to push-buttons, and the FSM state is exposed on PMOD JB for debug.
 
-## Skills Demonstrated
+**Clock note:** the phase timing is calibrated for a **50 MHz** clock
+(`50_000_000` counts = 1 s, and 30 s fits in the 31-bit counter). Pin `K17` on the
+Zybo is the **125 MHz** system clock, so to get the intended real-time durations,
+feed the controller a 50 MHz clock from a *Clocking Wizard* (MMCM) IP. Clocking
+directly at 125 MHz runs every phase 2.5× faster (and 30 s would overflow the
+31-bit counter, so it would also need a wider counter).
 
-- FPGA design
-- Finite State Machines
-- Verilog HDL
-- Counter-based timing
-- Sensor-driven control logic
-- Synchronization of asynchronous inputs
-- Simulation and waveform analysis
-- Hardware debugging on FPGA
+## Live demo
+
+[`tlc-demo.html`](tlc-demo.html) runs the exact FSM in the browser over a drawn
+intersection — highway cars flow on green, a farm car appears when you press
+*Farm car waiting*, and a panel shows the current state, both light colors, the
+time in state, and the condition being waited on. A speed control lets you watch a
+full cycle quickly. To publish a shareable link, enable **GitHub Pages** (repo
+Settings → Pages → deploy from `main`); the demo is then at
+`https://<user>.github.io/traffic-light-controller-fsm/tlc-demo.html`.
+
+## Board
+
+![Zybo Z7-10](zyboz10.jpg)

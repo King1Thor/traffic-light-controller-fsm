@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traffic Light Controller — FSM Live Demo</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --line:#272d36; --ink:#e6edf3; --muted:#8b949e;
+    --accent:#3b82f6; --red:#ef4444; --yel:#f6c344; --grn:#22c55e; --road:#2a2f37;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:22px 24px 8px;max-width:1080px;margin:0 auto}
+  h1{margin:0;font-size:22px;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .wrap{max-width:1080px;margin:0 auto;padding:16px 24px 40px;
+        display:grid;grid-template-columns:1fr 320px;gap:20px}
+  @media(max-width:840px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  svg{display:block;width:100%;height:auto;border-radius:10px;background:#11151b}
+  .controls{display:flex;flex-direction:column;gap:14px}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  button{cursor:pointer;border:1px solid var(--line);background:#1f262f;color:var(--ink);
+         border-radius:9px;padding:9px 13px;font-size:14px;font-weight:600;transition:.15s}
+  button:hover{border-color:var(--accent)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .seg button{border-radius:0;border-right:none}
+  .seg button:first-child{border-radius:9px 0 0 9px}
+  .seg button:last-child{border-radius:0 9px 9px 0;border-right:1px solid var(--line)}
+  .seg button.on{border-color:var(--accent)}
+  label.k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .stat:last-child{border-bottom:none}
+  .pill{font-weight:700;padding:2px 9px;border-radius:20px;font-size:13px}
+  .pill.red{background:rgba(239,68,68,.18);color:#fca5a5}
+  .pill.yellow{background:rgba(246,195,68,.18);color:#f7d774}
+  .pill.green{background:rgba(34,197,94,.18);color:#86efac}
+  .states{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .sbox{flex:1;min-width:42px;text-align:center;padding:8px 4px;border-radius:8px;border:1px solid var(--line);
+        font-size:12px;color:var(--muted);background:#12161c}
+  .sbox.active{border-color:var(--accent);color:#fff;background:rgba(59,130,246,.15);font-weight:700}
+  .sbox small{display:block;font-size:9px;opacity:.7;margin-top:2px}
+  .wait{color:var(--muted);font-size:13px;line-height:1.5;min-height:36px}
+  .legend{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.6}
+  code{background:#11151b;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px}
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:13px;line-height:1.6}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Traffic Light Controller — FSM Live Demo</h1>
+  <div class="sub">A 6-state Moore machine for a highway / farm-road intersection, running the same logic as the Verilog RTL. Highway has priority; the farm road only gets a green when a car is waiting.</div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <svg id="scene" viewBox="0 0 600 460" aria-label="intersection"></svg>
+    <div class="legend">
+      Signal encoding (matches the RTL): <code>2'b01</code> = red ·
+      <code>2'b10</code> = yellow · <code>2'b11</code> = green.
+      The farm road stays red until you press <b>Farm car waiting</b>.
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <label class="k">Controls</label>
+      <div class="row" style="margin-top:10px">
+        <button id="sensor">🚗 Farm car waiting: OFF</button>
+        <button id="reset">↺ Reset</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="k" style="width:100%">Speed</label>
+        <div class="seg row" style="gap:0" id="speed">
+          <button data-s="1">1×</button>
+          <button data-s="4" class="on">4×</button>
+          <button data-s="10">10×</button>
+          <button data-s="30">30×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label class="k">Status</label>
+      <div class="stat"><span>State</span><b id="stState">S0</b></div>
+      <div class="stat"><span>Highway</span><span id="stHw" class="pill red">RED</span></div>
+      <div class="stat"><span>Farm road</span><span id="stFarm" class="pill red">RED</span></div>
+      <div class="stat"><span>Time in state</span><b id="stTime">0.0 s</b></div>
+      <div class="wait" id="stWait" style="margin-top:10px"></div>
+      <div class="states" id="strip"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Phase timing (at the design's 50&nbsp;MHz clock): all-red 1&nbsp;s · highway-green 30&nbsp;s min ·
+  yellow 3&nbsp;s · farm-green 3&nbsp;s min / 18&nbsp;s max. Use the speed control to watch a full cycle quickly.
+  &nbsp;|&nbsp; <a href="https://github.com/King1Thor/traffic-light-controller-fsm">Source on GitHub</a>
+</footer>
+
+<script>
+// ---- FSM (faithful to tlc_fsm.v) ---------------------------------------
+const DUR = { S0:1, S1min:30, S2:3, S3:1, S4min:3, S4max:18, S5:3 };
+const META = {
+  S0:{hw:'red',   farm:'red',    label:'all-red'},
+  S1:{hw:'green', farm:'red',    label:'highway green'},
+  S2:{hw:'yellow',farm:'red',    label:'highway yellow'},
+  S3:{hw:'red',   farm:'red',    label:'all-red'},
+  S4:{hw:'red',   farm:'green',  label:'farm green'},
+  S5:{hw:'red',   farm:'yellow', label:'farm yellow'},
+};
+const ORDER = ['S0','S1','S2','S3','S4','S5'];
+let state='S0', t=0, sensor=false, speed=4;
+
+function advance(){
+  switch(state){
+    case 'S0': if(t>=DUR.S0){state='S1';t=0;} break;
+    case 'S1': if(t>=DUR.S1min && sensor){state='S2';t=0;} break;
+    case 'S2': if(t>=DUR.S2){state='S3';t=0;} break;
+    case 'S3': if(t>=DUR.S3){state='S4';t=0;} break;
+    case 'S4': if(t>=DUR.S4min && (!sensor || t>=DUR.S4max)){state='S5';t=0;} break;
+    case 'S5': if(t>=DUR.S5){state='S0';t=0;} break;
+  }
+}
+function waitText(){
+  const m=META[state];
+  switch(state){
+    case 'S0': case 'S3': return `Safety pause — both directions red for ${(Math.max(0,DUR[state]-t)).toFixed(1)} s.`;
+    case 'S1':
+      if(t<DUR.S1min) return `Highway green — minimum ${ (DUR.S1min-t).toFixed(1) } s remaining before it can yield.`;
+      return sensor ? `Minimum met and a farm car is waiting → switching to yellow.`
+                    : `Minimum met, but no farm car — highway stays green (press “Farm car waiting”).`;
+    case 'S2': return `Highway clearing — yellow for ${(DUR.S2-t).toFixed(1)} s.`;
+    case 'S4':
+      if(t<DUR.S4min) return `Farm green — minimum ${(DUR.S4min-t).toFixed(1)} s.`;
+      if(sensor) return `Car still present — staying green until it leaves or the 18 s cap (${(DUR.S4max-t).toFixed(1)} s left).`;
+      return `Car cleared → switching to yellow.`;
+    case 'S5': return `Farm clearing — yellow for ${(DUR.S5-t).toFixed(1)} s, then back to the highway.`;
+  }
+}
+
+// ---- scene ------------------------------------------------------------
+const NS=document.getElementById('scene');
+const C={red:'#ef4444',yellow:'#f6c344',green:'#22c55e',off:'#3a3f47'};
+function head(cx,cy,active,horizontal){
+  // a 3-lamp traffic head; active in {red,yellow,green}
+  const order=['red','yellow','green'];
+  let g=`<g>`;
+  const w=26,h=66;
+  g+=`<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" rx="6" fill="#0c0f14" stroke="#3a3f47"/>`;
+  order.forEach((col,i)=>{
+    const yy=cy-h/2+13+i*20;
+    const on = (active===col);
+    g+=`<circle cx="${cx}" cy="${yy}" r="8" fill="${on?C[col]:C.off}"
+         ${on?`filter="url(#glow)"`:''}/>`;
+  });
+  g+=`</g>`;
+  return g;
+}
+let carPhase=0;            // highway cars scroll when green
+let farmCarX=-40;          // farm car position
+function draw(){
+  const m=META[state];
+  // roads
+  let s=`
+   <defs>
+     <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+       <feGaussianBlur stdDeviation="3.4" result="b"/><feMerge>
+       <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+   </defs>
+   <rect x="0" y="0" width="600" height="460" fill="#0f1620"/>
+   <rect x="0" y="0" width="600" height="460" fill="#13351f" opacity=".25"/>
+   <rect x="240" y="0" width="120" height="460" fill="${'#2a2f37'}"/>
+   <rect x="0" y="180" width="600" height="120" fill="${'#2a2f37'}"/>`;
+  // lane dashes (highway vertical)
+  for(let y=10;y<460;y+=40){ if(y<170||y>300) s+=`<rect x="298" y="${y}" width="4" height="20" fill="#5b626c"/>`; }
+  for(let x=10;x<600;x+=40){ if(x<230||x>360) s+=`<rect x="${x}" y="238" width="20" height="4" fill="#5b626c"/>`; }
+
+  // highway cars (scroll only when green; stop at the line otherwise)
+  if(m.hw==='green'){
+    carPhase=(carPhase+2.4*speedFactorForCars())%130;
+    for(let k=0;k<4;k++){ let y=((k*130 + carPhase) % 560) - 60; s+=carV(270,y,'#7dd3fc'); }
+  } else {
+    s+=carV(270,150,'#7dd3fc');   // one car stopped at the north stop line
+  }
+
+  // farm car: appears when sensor on; waits at west stop line, crosses on green
+  if(sensor){
+    if(state==='S4'){ farmCarX += 2.6*speedFactorForCars(); if(farmCarX>640) farmCarX=-40; }
+    else { farmCarX += (farmCarX<150? 2.2:0); if(farmCarX>150) farmCarX=150; if(farmCarX< -40) farmCarX=-40; }
+  } else { farmCarX = -80; }
+  if(farmCarX>-60) s+=carH(farmCarX,210,'#fca5a5');
+
+  // signal heads (N & S approaches show highway; E & W show farm)
+  s+=head(212,150,m.hw,false);
+  s+=head(388,310,m.hw,false);
+  s+=head(388,212,m.farm,true);
+  s+=head(212,288,m.farm,true);
+
+  // labels
+  s+=`<text x="300" y="20" fill="#8b949e" font-size="12" text-anchor="middle">HIGHWAY (N–S)</text>`;
+  s+=`<text x="40" y="175" fill="#8b949e" font-size="12">FARM ROAD</text>`;
+  NS.innerHTML=s;
+}
+function carV(x,y,col){ return `<g><rect x="${x}" y="${y}" width="24" height="40" rx="5" fill="${col}"/>
+  <rect x="${x+3}" y="${y+5}" width="18" height="12" rx="2" fill="#0b1220" opacity=".5"/></g>`; }
+function carH(x,y,col){ return `<g><rect x="${x}" y="${y}" width="40" height="24" rx="5" fill="${col}"/>
+  <rect x="${x+6}" y="${y+3}" width="12" height="18" rx="2" fill="#0b1220" opacity=".5"/></g>`; }
+function speedFactorForCars(){ return Math.min(3, speed/4 + .5); }
+
+// ---- ui ---------------------------------------------------------------
+const strip=document.getElementById('strip');
+ORDER.forEach(st=>{ const d=document.createElement('div'); d.className='sbox'; d.id='box'+st;
+  d.innerHTML=`${st}<small>${META[st].label}</small>`; strip.appendChild(d); });
+
+function paint(){
+  document.getElementById('stState').textContent=state;
+  const hw=document.getElementById('stHw'), fm=document.getElementById('stFarm');
+  hw.className='pill '+META[state].hw; hw.textContent=META[state].hw.toUpperCase();
+  fm.className='pill '+META[state].farm; fm.textContent=META[state].farm.toUpperCase();
+  document.getElementById('stTime').textContent=t.toFixed(1)+' s';
+  document.getElementById('stWait').textContent=waitText();
+  ORDER.forEach(st=>document.getElementById('box'+st).classList.toggle('active',st===state));
+}
+
+const sensorBtn=document.getElementById('sensor');
+sensorBtn.onclick=()=>{ sensor=!sensor; sensorBtn.classList.toggle('on',sensor);
+  sensorBtn.textContent=`🚗 Farm car waiting: ${sensor?'ON':'OFF'}`; };
+document.getElementById('reset').onclick=()=>{ state='S0'; t=0; sensor=false;
+  sensorBtn.classList.remove('on'); sensorBtn.textContent='🚗 Farm car waiting: OFF'; farmCarX=-80; };
+document.querySelectorAll('#speed button').forEach(b=>b.onclick=()=>{
+  speed=+b.dataset.s; document.querySelectorAll('#speed button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); });
+
+// ---- loop -------------------------------------------------------------
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  t+=dt*speed; advance();
+  draw(); paint();
+  requestAnimationFrame(loop);
+}
+draw(); paint(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
