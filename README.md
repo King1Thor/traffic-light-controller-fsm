@@ -1,4 +1,4 @@
-# Traffic Light Controller — Full System with Pedestrian Crossing (Zybo Z7-10)
+# Traffic Light Controller - Full System with Pedestrian Crossing (Zybo Z7-10)
 
 A complete, board-ready traffic-light controller for a **highway / farm-road
 intersection with a pedestrian crossing**, built around an **8-state Moore FSM**
