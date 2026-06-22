@@ -70,6 +70,7 @@
       <label class="k">Controls</label>
       <div class="row" style="margin-top:10px">
         <button id="sensor">🚗 Farm car waiting: OFF</button>
+        <button id="ped">🚶 Pedestrian waiting: OFF</button>
         <button id="reset">↺ Reset</button>
       </div>
       <div class="row" style="margin-top:12px">
@@ -88,6 +89,7 @@
       <div class="stat"><span>State</span><b id="stState">S0</b></div>
       <div class="stat"><span>Highway</span><span id="stHw" class="pill red">RED</span></div>
       <div class="stat"><span>Farm road</span><span id="stFarm" class="pill red">RED</span></div>
+      <div class="stat"><span>Pedestrian</span><span id="stWalk" class="pill red">DON'T WALK</span></div>
       <div class="stat"><span>Time in state</span><b id="stTime">0.0 s</b></div>
       <div class="wait" id="stWait" style="margin-top:10px"></div>
       <div class="states" id="strip"></div>
@@ -103,7 +105,7 @@
 
 <script>
 // ---- FSM (faithful to tlc_fsm.v) ---------------------------------------
-const DUR = { S0:1, S1min:30, S2:3, S3:1, S4min:3, S4max:18, S5:3 };
+const DUR = { S0:1, S1min:30, S2:3, S3:1, S4min:3, S4max:18, S5:3, S6:8, S7:5 };
 const META = {
   S0:{hw:'red',   farm:'red',    label:'all-red'},
   S1:{hw:'green', farm:'red',    label:'highway green'},
@@ -111,20 +113,28 @@ const META = {
   S3:{hw:'red',   farm:'red',    label:'all-red'},
   S4:{hw:'red',   farm:'green',  label:'farm green'},
   S5:{hw:'red',   farm:'yellow', label:'farm yellow'},
+  S6:{hw:'red',   farm:'red',    label:'WALK'},
+  S7:{hw:'red',   farm:'red',    label:"don't-walk flash"},
 };
-const ORDER = ['S0','S1','S2','S3','S4','S5'];
-let state='S0', t=0, sensor=false, speed=4;
+const ORDER = ['S0','S1','S2','S3','S4','S5','S6','S7'];
+let state='S0', t=0, sensor=false, ped=false, speed=4;
 
 function advance(){
   switch(state){
     case 'S0': if(t>=DUR.S0){state='S1';t=0;} break;
-    case 'S1': if(t>=DUR.S1min && sensor){state='S2';t=0;} break;
+    case 'S1': if(t>=DUR.S1min && (sensor||ped)){state='S2';t=0;} break;
     case 'S2': if(t>=DUR.S2){state='S3';t=0;} break;
-    case 'S3': if(t>=DUR.S3){state='S4';t=0;} break;
+    case 'S3': if(t>=DUR.S3){ t=0;                       // decision: ped > car > hwy
+                 if(ped){state='S6';ped=false;}
+                 else if(sensor){state='S4';}
+                 else {state='S1';} } break;
     case 'S4': if(t>=DUR.S4min && (!sensor || t>=DUR.S4max)){state='S5';t=0;} break;
-    case 'S5': if(t>=DUR.S5){state='S0';t=0;} break;
+    case 'S5': if(t>=DUR.S5){state='S3';t=0;} break;
+    case 'S6': if(t>=DUR.S6){state='S7';t=0;} break;
+    case 'S7': if(t>=DUR.S7){state='S0';t=0;} break;
   }
 }
+function walkOn(){ return state==='S6'; }
 function waitText(){
   const m=META[state];
   switch(state){
@@ -139,6 +149,8 @@ function waitText(){
       if(sensor) return `Car still present — staying green until it leaves or the 18 s cap (${(DUR.S4max-t).toFixed(1)} s left).`;
       return `Car cleared → switching to yellow.`;
     case 'S5': return `Farm clearing — yellow for ${(DUR.S5-t).toFixed(1)} s, then back to the highway.`;
+    case 'S6': return `WALK — all vehicles red, pedestrians cross for ${(DUR.S6-t).toFixed(1)} s.`;
+    case 'S7': return `DON'T-WALK flashing — ${(DUR.S7-t).toFixed(1)} s clearance, then back to the highway.`;
   }
 }
 
@@ -221,6 +233,10 @@ function paint(){
   const hw=document.getElementById('stHw'), fm=document.getElementById('stFarm');
   hw.className='pill '+META[state].hw; hw.textContent=META[state].hw.toUpperCase();
   fm.className='pill '+META[state].farm; fm.textContent=META[state].farm.toUpperCase();
+  const wk=document.getElementById('stWalk');
+  if(state==='S6'){ wk.className='pill green'; wk.textContent='WALK'; }
+  else if(state==='S7'){ wk.className='pill yellow'; wk.textContent="DON'T WALK (flash)"; }
+  else { wk.className='pill red'; wk.textContent="DON'T WALK"; }
   document.getElementById('stTime').textContent=t.toFixed(1)+' s';
   document.getElementById('stWait').textContent=waitText();
   ORDER.forEach(st=>document.getElementById('box'+st).classList.toggle('active',st===state));
@@ -229,8 +245,12 @@ function paint(){
 const sensorBtn=document.getElementById('sensor');
 sensorBtn.onclick=()=>{ sensor=!sensor; sensorBtn.classList.toggle('on',sensor);
   sensorBtn.textContent=`🚗 Farm car waiting: ${sensor?'ON':'OFF'}`; };
-document.getElementById('reset').onclick=()=>{ state='S0'; t=0; sensor=false;
-  sensorBtn.classList.remove('on'); sensorBtn.textContent='🚗 Farm car waiting: OFF'; farmCarX=-80; };
+const pedBtn=document.getElementById('ped');
+pedBtn.onclick=()=>{ ped=!ped; pedBtn.classList.toggle('on',ped);
+  pedBtn.textContent=`🚶 Pedestrian waiting: ${ped?'ON':'OFF'}`; };
+document.getElementById('reset').onclick=()=>{ state='S0'; t=0; sensor=false; ped=false;
+  sensorBtn.classList.remove('on'); sensorBtn.textContent='🚗 Farm car waiting: OFF';
+  pedBtn.classList.remove('on'); pedBtn.textContent='🚶 Pedestrian waiting: OFF'; farmCarX=-80; };
 document.querySelectorAll('#speed button').forEach(b=>b.onclick=()=>{
   speed=+b.dataset.s; document.querySelectorAll('#speed button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); });

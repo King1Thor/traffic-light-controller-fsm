@@ -1,83 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 600" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 640" font-family="Segoe UI, Helvetica, Arial, sans-serif">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#7f8794"/>
-    </marker>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7f8794"/></marker>
     <style>
       .node{fill:#161b22;stroke:#3b82f6;stroke-width:2}
-      .sid{fill:#e6edf3;font-size:20px;font-weight:700;text-anchor:middle}
-      .desc{fill:#8b949e;font-size:11px;text-anchor:middle}
+      .ped{stroke:#a855f7} .farm{stroke:#22c55e}
+      .sid{fill:#e6edf3;font-size:18px;font-weight:700;text-anchor:middle}
+      .desc{fill:#8b949e;font-size:10px;text-anchor:middle}
       .edge{stroke:#7f8794;stroke-width:2;fill:none}
-      .lbl{fill:#cdd3da;font-size:12px;text-anchor:middle}
-      .lbl2{fill:#8b949e;font-size:10.5px;text-anchor:middle}
-      .title{fill:#e6edf3;font-size:18px;font-weight:700}
-      .leg{fill:#8b949e;font-size:12px}
+      .lbl{fill:#cdd3da;font-size:11px;text-anchor:middle}
+      .t{fill:#e6edf3;font-size:18px;font-weight:700}
+      .leg{fill:#8b949e;font-size:11px}
     </style>
   </defs>
+  <rect width="720" height="640" fill="#0e1116"/>
+  <text x="26" y="34" class="t">Traffic Light Controller — 8-state FSM (highway · farm road · pedestrian)</text>
 
-  <rect width="640" height="600" fill="#0e1116"/>
-  <text x="28" y="36" class="title">Traffic Light Controller — Moore FSM</text>
-  <text x="28" y="56" class="leg">Highway / farm-road intersection · transitions fire on the timing counter and the farm sensor</text>
+  <!-- highway spine: S0 S1 S2 S3 -->
+  <!-- S0(360,90) S1(360,200) S2(360,310) S3(360,420) -->
+  <path class="edge" d="M360,126 L360,162" marker-end="url(#a)"/>
+  <path class="edge" d="M360,236 L360,272" marker-end="url(#a)"/>
+  <path class="edge" d="M360,346 L360,382" marker-end="url(#a)"/>
+  <text class="lbl" x="392" y="148">≥1 s</text>
+  <text class="lbl" x="392" y="258">≥30 s &amp; (car|ped)</text>
+  <text class="lbl" x="392" y="368">≥3 s</text>
 
-  <!-- edges (clockwise cycle): drawn first so nodes sit on top -->
-  <!-- S0(320,130) S1(500,235) S2(500,415) S3(320,520) S4(140,415) S5(140,235) -->
-  <path class="edge" d="M372,158 A 200 200 0 0 1 472,210" marker-end="url(#arrow)"/>
-  <path class="edge" d="M512,283 A 200 200 0 0 1 512,367" marker-end="url(#arrow)"/>
-  <path class="edge" d="M472,440 A 200 200 0 0 1 372,492" marker-end="url(#arrow)"/>
-  <path class="edge" d="M268,492 A 200 200 0 0 1 168,440" marker-end="url(#arrow)"/>
-  <path class="edge" d="M128,367 A 200 200 0 0 1 128,283" marker-end="url(#arrow)"/>
-  <path class="edge" d="M168,210 A 200 200 0 0 1 268,158" marker-end="url(#arrow)"/>
+  <!-- farm branch (right): S3->S4->S5->S3 -->
+  <!-- S4(560,420) S5(560,530) -->
+  <path class="edge farm" d="M396,420 L524,420" marker-end="url(#a)"/>
+  <path class="edge" d="M560,456 L560,494" marker-end="url(#a)"/>
+  <path class="edge" d="M524,520 C 440,520 430,452 392,432" marker-end="url(#a)"/>
+  <text class="lbl" x="460" y="412">car</text>
+  <text class="lbl" x="592" y="478">≥3 s</text>
+  <text class="lbl" x="470" y="500">≥3 s</text>
 
-  <!-- transition labels -->
-  <text class="lbl" x="455" y="150">Count ≥ 1 s</text>
-  <text class="lbl" x="610" y="322">Count ≥ 30 s</text>
-  <text class="lbl2" x="610" y="338">&amp; farmSensor</text>
-  <text class="lbl" x="455" y="512">Count ≥ 3 s</text>
-  <text class="lbl" x="185" y="512">Count ≥ 1 s</text>
-  <text class="lbl" x="40" y="322">Count ≥ 3 s &amp;</text>
-  <text class="lbl2" x="40" y="338">(¬sensor | ≥18 s)</text>
-  <text class="lbl" x="185" y="150">Count ≥ 3 s</text>
+  <!-- pedestrian branch (left): S3->S6->S7->S0 -->
+  <!-- S6(160,420) S7(160,530) -->
+  <path class="edge ped" d="M324,420 L196,420" marker-end="url(#a)"/>
+  <path class="edge ped" d="M160,456 L160,494" marker-end="url(#a)"/>
+  <path class="edge ped" d="M160,494 C 160,300 250,150 326,108" marker-end="url(#a)"/>
+  <text class="lbl" x="252" y="412">ped</text>
+  <text class="lbl" x="192" y="478">8 s</text>
+  <text class="lbl" x="120" y="300">5 s</text>
 
-  <!-- nodes: each shows the two lights (H = highway, F = farm) -->
-  <!-- S0 -->
-  <circle class="node" cx="320" cy="130" r="46"/>
-  <text class="sid" x="320" y="124">S0</text>
-  <circle cx="308" cy="146" r="6" fill="#ef4444"/><circle cx="332" cy="146" r="6" fill="#ef4444"/>
-  <text class="desc" x="320" y="172">all red</text>
-
-  <!-- S1 -->
-  <circle class="node" cx="500" cy="235" r="46"/>
-  <text class="sid" x="500" y="229">S1</text>
-  <circle cx="488" cy="251" r="6" fill="#22c55e"/><circle cx="512" cy="251" r="6" fill="#ef4444"/>
-  <text class="desc" x="500" y="277">hwy green</text>
-
-  <!-- S2 -->
-  <circle class="node" cx="500" cy="415" r="46"/>
-  <text class="sid" x="500" y="409">S2</text>
-  <circle cx="488" cy="431" r="6" fill="#f6c344"/><circle cx="512" cy="431" r="6" fill="#ef4444"/>
-  <text class="desc" x="500" y="457">hwy yellow</text>
-
-  <!-- S3 -->
-  <circle class="node" cx="320" cy="520" r="46"/>
-  <text class="sid" x="320" y="514">S3</text>
-  <circle cx="308" cy="536" r="6" fill="#ef4444"/><circle cx="332" cy="536" r="6" fill="#ef4444"/>
-  <text class="desc" x="320" y="562">all red</text>
-
-  <!-- S4 -->
-  <circle class="node" cx="140" cy="415" r="46"/>
-  <text class="sid" x="140" y="409">S4</text>
-  <circle cx="128" cy="431" r="6" fill="#ef4444"/><circle cx="152" cy="431" r="6" fill="#22c55e"/>
-  <text class="desc" x="140" y="457">farm green</text>
-
-  <!-- S5 -->
-  <circle class="node" cx="140" cy="235" r="46"/>
-  <text class="sid" x="140" y="229">S5</text>
-  <circle cx="128" cy="251" r="6" fill="#ef4444"/><circle cx="152" cy="251" r="6" fill="#f6c344"/>
-  <text class="desc" x="140" y="277">farm yellow</text>
+  <!-- nodes -->
+  <g><circle class="node" cx="360" cy="90"  r="36"/><text class="sid" x="360" y="86">S0</text><text class="desc" x="360" y="104">all red</text></g>
+  <g><circle class="node" cx="360" cy="200" r="36"/><text class="sid" x="360" y="196">S1</text><text class="desc" x="360" y="214">hwy GRN</text></g>
+  <g><circle class="node" cx="360" cy="310" r="36"/><text class="sid" x="360" y="306">S2</text><text class="desc" x="360" y="324">hwy YEL</text></g>
+  <g><circle class="node" cx="360" cy="420" r="36"/><text class="sid" x="360" y="416">S3</text><text class="desc" x="360" y="434">decide</text></g>
+  <g><circle class="node farm" cx="560" cy="420" r="36"/><text class="sid" x="560" y="416">S4</text><text class="desc" x="560" y="434">farm GRN</text></g>
+  <g><circle class="node farm" cx="560" cy="530" r="36"/><text class="sid" x="560" y="526">S5</text><text class="desc" x="560" y="544">farm YEL</text></g>
+  <g><circle class="node ped" cx="160" cy="420" r="36"/><text class="sid" x="160" y="416">S6</text><text class="desc" x="160" y="434">WALK</text></g>
+  <g><circle class="node ped" cx="160" cy="530" r="36"/><text class="sid" x="160" y="526">S7</text><text class="desc" x="160" y="544">DON'T-WALK</text></g>
 
   <!-- legend -->
-  <circle cx="40" cy="578" r="5" fill="#ef4444"/><text class="leg" x="52" y="582">red</text>
-  <circle cx="92" cy="578" r="5" fill="#f6c344"/><text class="leg" x="104" y="582">yellow</text>
-  <circle cx="158" cy="578" r="5" fill="#22c55e"/><text class="leg" x="170" y="582">green</text>
-  <text class="leg" x="250" y="582">left dot = highway · right dot = farm road</text>
+  <circle cx="30" cy="610" r="6" fill="none" stroke="#3b82f6" stroke-width="2"/><text class="leg" x="44" y="614">highway</text>
+  <circle cx="120" cy="610" r="6" fill="none" stroke="#22c55e" stroke-width="2"/><text class="leg" x="134" y="614">farm road</text>
+  <circle cx="220" cy="610" r="6" fill="none" stroke="#a855f7" stroke-width="2"/><text class="leg" x="234" y="614">pedestrian</text>
+  <text class="leg" x="330" y="614">S3 priority: pedestrian → farm car → back to highway</text>
 </svg>
